@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Manicure CRM</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dexie@4.0.8/dist/dexie.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>💅 Manicure CRM</h1>
+    <nav class="tabs">
+      <button data-tab="calendar" class="tab active">Календарь</button>
+      <button data-tab="clients" class="tab">Клиенты</button>
+      <button data-tab="services" class="tab">Услуги</button>
+      <button data-tab="finance" class="tab">Финансы</button>
+      <button data-tab="reports" class="tab">Отчёты</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-calendar" class="tab-panel active">
+      <div id="calendar"></div>
+    </section>
+
+    <section id="tab-clients" class="tab-panel">
+      <div class="toolbar">
+        <button id="add-client-btn" class="btn primary">+ Добавить клиента</button>
+      </div>
+      <div class="table-wrap">
+        <table id="clients-table">
+          <thead>
+            <tr><th>Имя</th><th>Телефон</th><th>Email</th><th>Услуги</th><th>Заметки</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-services" class="tab-panel">
+      <div class="toolbar">
+        <button id="add-service-btn" class="btn primary">+ Добавить услугу</button>
+      </div>
+      <div class="table-wrap">
+        <table id="services-table">
+          <thead><tr><th>Название</th><th>Цена</th><th>Длит., мин</th><th>Клиентов</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-finance" class="tab-panel">
+      <div class="finance-grid">
+        <div class="finance-col">
+          <h2>Доходы</h2>
+          <div class="toolbar">
+            <button id="add-income-btn" class="btn primary">+ Доход</button>
+          </div>
+          <div class="table-wrap">
+            <table id="incomes-table">
+              <thead><tr><th>Дата</th><th>Клиент</th><th>Услуга</th><th>Сумма</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="finance-col">
+          <h2>Расходы</h2>
+          <div class="toolbar">
+            <button id="add-expense-btn" class="btn primary">+ Расход</button>
+          </div>
+          <div class="table-wrap">
+            <table id="expenses-table">
+              <thead><tr><th>Дата</th><th>Категория</th><th>Сумма</th><th>Комментарий</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-reports" class="tab-panel">
+      <div class="toolbar">
+        <label>С: <input type="date" id="report-from" /></label>
+        <label>По: <input type="date" id="report-to" /></label>
+        <button id="build-report-btn" class="btn primary">Построить отчёт</button>
+      </div>
+      <div id="report-output"></div>
+    </section>
+  </main>
+
+  <footer class="backup-bar">
+    <button id="export-excel-btn" class="btn">📤 Экспорт в Excel</button>
+    <input type="file" id="import-excel-input" accept=".xlsx,.xls" hidden />
+    <button id="import-excel-btn" class="btn">📥 Импорт из Excel</button>
+    <span id="backup-status" class="muted"></span>
+  </footer>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="modal-title"></h2>
+      <form id="modal-form"></form>
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn">Отмена</button>
+        <button type="submit" form="modal-form" class="btn primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/backup.js"></script>
+  <script src="js/services.js"></script>
+  <script src="js/clients.js"></script>
+  <script src="js/finance.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
