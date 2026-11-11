@@ -19,11 +19,18 @@ async function initCalendar() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
     locale: 'ru',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-    },
+     headerToolbar: {
+  left: 'prev,next today',
+  center: 'title',
+  right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+},
+buttonText: {
+  today: 'Сегодня',
+  month: 'Месяц',
+  week: 'Неделя',
+  day: 'День',
+  list: 'Список'
+},
     height: 'auto',
     events: events,
     eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
