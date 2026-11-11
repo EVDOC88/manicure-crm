@@ -1,10 +1,10 @@
 const db = new Dexie('ManicureCRM');
 
-db.version(2).stores({
+db.version(3).stores({
   clients:  '++id, name, phone, email',
   services: '++id, name, price',
   clientServices: '++id, clientId, serviceId, [clientId+serviceId]',
-  incomes:  '++id, clientId, serviceId, date, amount',
+  incomes:  '++id, clientId, serviceId, date, amount, paid',
   expenses: '++id, date, category, amount',
   backups:  '++id, createdAt'
 });

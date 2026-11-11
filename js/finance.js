@@ -20,11 +20,16 @@ async function renderIncomes() {
     const client = clientsCache.find(c => c.id === i.clientId);
     const service = servicesCache.find(s => s.id === i.serviceId);
     const tr = document.createElement('tr');
+	const status = getIncomeStatus(i);
+    const statusLabel = status === 'paid' ? '✔ Оплачено' : status === 'unpaid' ? '⏳ Не оплачено' : '🟢 Предстоит';
+    const statusColor = STATUS_COLORS[status];
     tr.innerHTML = `
       <td>${escapeHtml(i.date)}</td>
       <td>${escapeHtml(client?.name || '—')}</td>
       <td>${escapeHtml(service?.name || '—')}</td>
       <td>${Number(i.amount || 0).toFixed(2)}</td>
+	  <td><span style="color:${statusColor}; font-weight:600;">${statusLabel}</span></td>
+	  
       <td>
         <button class="btn" data-edit="${i.id}">✏️</button>
         <button class="btn danger" data-del="${i.id}">🗑️</button>
@@ -237,4 +242,79 @@ function openExpenseModal(id = null) {
 function initFinance() {
   document.getElementById('add-income-btn').addEventListener('click', () => openIncomeModal());
   document.getElementById('add-expense-btn').addEventListener('click', () => openExpenseModal());
+}
+function canMarkPaid(income) {
+  if (income.paid) return false;
+  const time = income.time || '10:00';
+  const service = servicesCache.find(s => s.id === income.serviceId);
+  const duration = service?.duration || 60;
+  const [h, m] = time.split(':').map(Number);
+  const end = new Date(`${income.date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
+  end.setMinutes(end.getMinutes() + duration);
+  return new Date() >= end;
+}
+
+async function openIncomeCard(id) {
+  const income = await db.incomes.get(id);
+  if (!income) return;
+
+  const client = clientsCache.find(c => c.id === income.clientId);
+  const service = servicesCache.find(s => s.id === income.serviceId);
+  const status = getIncomeStatus(income);
+
+  const statusText = status === 'paid'
+    ? '✔ Оплачено'
+    : status === 'unpaid'
+      ? '⏳ Сеанс закончен, ожидает оплаты'
+      : '🟢 Предстоящая запись';
+
+  const canPay = canMarkPaid(income);
+
+  const form = document.getElementById('modal-form');
+  document.getElementById('modal-title').textContent = 'Карточка записи';
+
+  form.innerHTML = `
+    <div class="income-card">
+      <p><strong>Клиент:</strong> ${escapeHtml(client?.name || '—')}${client?.phone ? ' (' + escapeHtml(client.phone) + ')' : ''}</p>
+      <p><strong>Услуга:</strong> ${escapeHtml(service?.name || '—')}</p>
+      <p><strong>Дата:</strong> ${escapeHtml(income.date)} в ${escapeHtml(income.time || '10:00')}</p>
+      <p><strong>Длительность:</strong> ${Number(service?.duration || 60)} мин</p>
+      <p><strong>Сумма:</strong> ${Number(income.amount || 0).toFixed(2)}</p>
+      <p><strong>Статус:</strong> ${statusText}</p>
+    </div>
+    <div class="modal-actions" style="justify-content: space-between; flex-wrap: wrap;">
+      <button type="button" class="btn" id="card-edit-btn">✏️ Редактировать</button>
+      <button type="button" class="btn danger" id="card-delete-btn">🗑️ Удалить</button>
+      <button type="button" class="btn primary" id="card-pay-btn" ${canPay ? '' : 'disabled title="Кнопка доступна после окончания сеанса"'}>✅ ОПЛАЧЕНО</button>
+    </div>
+  `;
+
+  // Кнопка «ОПЛАЧЕНО»
+  const payBtn = document.getElementById('card-pay-btn');
+  payBtn.addEventListener('click', async () => {
+    if (!canMarkPaid(income)) return;
+    await db.incomes.update(id, { paid: true });
+    closeModal();
+    await loadFinance();
+    await refreshCalendar();
+    await makeSnapshot();
+  });
+
+  // Редактировать
+  document.getElementById('card-edit-btn').addEventListener('click', () => {
+    closeModal();
+    openIncomeModal(id);
+  });
+
+  // Удалить
+  document.getElementById('card-delete-btn').addEventListener('click', async () => {
+    if (!confirm('Удалить запись?')) return;
+    await db.incomes.delete(id);
+    closeModal();
+    await loadFinance();
+    await refreshCalendar();
+    await makeSnapshot();
+  });
+
+  openModal();
 }

@@ -13,30 +13,25 @@ async function buildReport() {
     return true;
   };
 
-  // Факт: дата <= сегодня и попадает в диапазон
-  const factIncomes = incomes.filter(i => inRange(i.date) && i.date <= today);
-  // Ожидаемые в периоде: дата > сегодня и <= to (и >= from, если from в будущем)
-  const expectedInPeriod = incomes.filter(i => {
-    if (!i.date || i.date <= today) return false;
-    if (to && i.date > to) return false;
-    if (from && i.date < from) return false;
-    return true;
-  });
-  // Все будущие записи (без ограничения периода)
-  const allFuture = incomes.filter(i => i.date && i.date > today);
+  // Разделяем доходы по статусам
+  const factIncomes = incomes.filter(i => inRange(i.date) && i.paid);
+  const unpaidPast = incomes.filter(i => inRange(i.date) && !i.paid && getIncomeStatus(i) === 'unpaid');
+  const futureInPeriod = incomes.filter(i => inRange(i.date) && !i.paid && getIncomeStatus(i) === 'new');
+  const allFuture = incomes.filter(i => i.date && i.date > today && !i.paid);
 
-  // Расходы считаем как факт (в будущем расходов у нас нет)
+  // Расходы — как факт
   const filteredExpenses = expenses.filter(e => inRange(e.date));
 
   const sum = (arr) => arr.reduce((s, x) => s + Number(x.amount || 0), 0);
 
   const totalIncomeFact = sum(factIncomes);
-  const totalIncomeExpected = sum(expectedInPeriod);
-  const totalIncomeAllFuture = sum(allFuture);
+  const totalUnpaidPast = sum(unpaidPast);
+  const totalFuture = sum(futureInPeriod);
+  const totalAllFuture = sum(allFuture);
   const totalExpense = sum(filteredExpenses);
   const profitFact = totalIncomeFact - totalExpense;
 
-  // Разбивки — по факту
+  // Разбивки — только по факту (оплачено)
   const byService = {};
   const byClient = {};
   const clientServiceMatrix = {};
@@ -59,7 +54,7 @@ async function buildReport() {
     byCategory[key] = (byCategory[key] || 0) + Number(e.amount || 0);
   });
 
-  // Список будущих записей для наглядности
+  // Список будущих записей (все, независимо от периода)
   const futureList = allFuture
     .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')))
     .map(i => {
@@ -77,21 +72,21 @@ async function buildReport() {
   const out = document.getElementById('report-output');
   out.innerHTML = `
     <div class="report-summary">
-      <div>Доходы (факт)<strong>${totalIncomeFact.toFixed(2)}</strong></div>
+      <div>Оплачено (факт)<strong>${totalIncomeFact.toFixed(2)}</strong></div>
+      <div>Просрочено (не оплачено)<strong style="color:#9c27b0">${totalUnpaidPast.toFixed(2)}</strong></div>
+      <div>Предстоит в периоде<strong style="color:#4caf50">${totalFuture.toFixed(2)}</strong></div>
       <div>Расходы<strong>${totalExpense.toFixed(2)}</strong></div>
       <div>Прибыль (факт)<strong style="color:${profitFact >= 0 ? '#1a8f3c' : '#c00'}">${profitFact.toFixed(2)}</strong></div>
-      <div>Ожидается в периоде<strong style="color:#6c63ff">${totalIncomeExpected.toFixed(2)}</strong></div>
-      <div>Прогноз прибыли в периоде<strong style="color:#6c63ff">${(totalIncomeFact + totalIncomeExpected - totalExpense).toFixed(2)}</strong></div>
-      <div>Всего записано вперёд<strong style="color:#6c63ff">${totalIncomeAllFuture.toFixed(2)}</strong></div>
+      <div>Всего записано вперёд<strong style="color:#00bcd4">${totalAllFuture.toFixed(2)}</strong></div>
     </div>
 
-    <h3>Доходы по услугам (факт)</h3>
+    <h3>Доходы по услугам (оплачено)</h3>
     ${renderKeyValueTable(byService)}
 
-    <h3>Доходы по клиентам (факт)</h3>
+    <h3>Доходы по клиентам (оплачено)</h3>
     ${renderKeyValueTable(byClient)}
 
-    <h3>Клиент × Услуга (факт: сумма / кол-во)</h3>
+    <h3>Клиент × Услуга (оплачено: сумма / кол-во)</h3>
     ${renderMatrixTable(clientServiceMatrix)}
 
     <h3>Расходы по категориям</h3>
@@ -100,22 +95,6 @@ async function buildReport() {
     <h3>Прогноз: будущие записи (${futureList.length})</h3>
     ${renderFutureTable(futureList)}
   `;
-}
-
-function renderFutureTable(rows) {
-  if (!rows.length) return '<p class="muted">Будущих записей нет</p>';
-  return `<div class="table-wrap"><table>
-    <thead><tr><th>Дата</th><th>Время</th><th>Клиент</th><th>Услуга</th><th>Сумма</th></tr></thead>
-    <tbody>
-      ${rows.map(r => `<tr>
-        <td>${escapeHtml(r.date)}</td>
-        <td>${escapeHtml(r.time)}</td>
-        <td>${escapeHtml(r.client)}</td>
-        <td>${escapeHtml(r.service)}</td>
-        <td>${r.amount.toFixed(2)}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table></div>`;
 }
 
 function renderKeyValueTable(obj) {
@@ -153,6 +132,22 @@ function renderMatrixTable(matrix) {
   });
   html += '</tbody></table></div>';
   return html;
+}
+
+function renderFutureTable(rows) {
+  if (!rows.length) return '<p class="muted">Будущих записей нет</p>';
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Дата</th><th>Время</th><th>Клиент</th><th>Услуга</th><th>Сумма</th></tr></thead>
+    <tbody>
+      ${rows.map(r => `<tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.time)}</td>
+        <td>${escapeHtml(r.client)}</td>
+        <td>${escapeHtml(r.service)}</td>
+        <td>${r.amount.toFixed(2)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
 }
 
 function initReports() {

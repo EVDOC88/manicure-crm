@@ -1,15 +1,22 @@
 let calendar = null;
 
-// Палитра цветов (достаточно различимых)
-const CLIENT_COLORS = [
-  '#6c63ff', '#e91e63', '#ff9800', '#4caf50', '#00bcd4',
-  '#9c27b0', '#f44336', '#3f51b5', '#009688', '#ff5722',
-  '#8bc34a', '#03a9f4', '#cddc39', '#795548', '#607d8b'
-];
+const STATUS_COLORS = {
+  new:     '#4caf50', // зелёный
+  unpaid:  '#9c27b0', // фиолетовый
+  paid:    '#00bcd4'  // голубой
+};
 
-function colorForClient(clientId) {
-  if (!clientId) return '#9e9e9e'; // серый для «без клиента»
-  return CLIENT_COLORS[Number(clientId) % CLIENT_COLORS.length];
+// Возвращает 'new' | 'unpaid' | 'paid'
+function getIncomeStatus(income) {
+  if (income.paid) return 'paid';
+  const date = income.date;
+  const time = income.time || '10:00';
+  const service = servicesCache.find(s => s.id === income.serviceId);
+  const duration = service?.duration || 60;
+  const [h, m] = time.split(':').map(Number);
+  const end = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
+  end.setMinutes(end.getMinutes() + duration);
+  return new Date() >= end ? 'unpaid' : 'new';
 }
 
 async function initCalendar() {
@@ -19,18 +26,18 @@ async function initCalendar() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
     locale: 'ru',
-  headerToolbar: {
-  left: 'prev,next today',
-  center: 'title',
-  right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-},
-buttonText: {
-  today: 'Сегодня',
-  month: 'Месяц',
-  week: 'Неделя',
-  day: 'День',
-  list: 'Список'
-},
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+    },
+    buttonText: {
+      today: 'Сегодня',
+      month: 'Месяц',
+      week: 'Неделя',
+      day: 'День',
+      list: 'Список'
+    },
     height: 'auto',
     events: events,
     eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
@@ -48,7 +55,7 @@ buttonText: {
     eventClick: (info) => {
       info.jsEvent.preventDefault();
       const id = Number(info.event.id);
-      if (id) openIncomeModal(id);
+      if (id) openIncomeCard(id); // теперь открываем карточку записи
     }
   });
 
@@ -72,18 +79,20 @@ async function loadCalendarEvents() {
       const service = servicesCache.find(s => s.id === i.serviceId);
       const time = i.time || '10:00';
       const duration = service?.duration || 60;
-      const color = colorForClient(i.clientId);
+      const status = getIncomeStatus(i);
+      const color = STATUS_COLORS[status];
 
-      // Вычисляем время окончания
       const [h, m] = time.split(':').map(Number);
       const total = h * 60 + m + duration;
       const eh = Math.floor(total / 60) % 24;
       const em = total % 60;
       const endTime = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
 
+      const statusLabel = status === 'paid' ? '✔ оплачено' : status === 'unpaid' ? '⏳ не оплачено' : '';
+
       return {
         id: String(i.id),
-        title: `${client?.name || 'Клиент'} — ${service?.name || ''} (${Number(i.amount || 0).toFixed(0)})`,
+        title: `${client?.name || 'Клиент'} — ${service?.name || ''} (${Number(i.amount || 0).toFixed(0)})${statusLabel ? ' ' + statusLabel : ''}`,
         start: `${i.date}T${time}:00`,
         end: `${i.date}T${endTime}:00`,
         allDay: false,
