@@ -19,7 +19,7 @@ async function initCalendar() {
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth',
     locale: 'ru',
-     headerToolbar: {
+  headerToolbar: {
   left: 'prev,next today',
   center: 'title',
   right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
